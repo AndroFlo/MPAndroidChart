@@ -11,6 +11,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Paint.Align;
 import android.graphics.Paint.Style;
+import android.graphics.drawable.Drawable;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
@@ -28,6 +29,7 @@ import com.github.mikephil.charting.data.ChartData;
 import com.github.mikephil.charting.data.DataSet;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.PieDataSet;
+import com.github.mikephil.charting.interfaces.OnChartGestureListener;
 import com.github.mikephil.charting.interfaces.OnChartValueSelectedListener;
 import com.github.mikephil.charting.utils.Highlight;
 import com.github.mikephil.charting.utils.Legend;
@@ -209,6 +211,11 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
     private String mNoDataText = "No chart data available.";
 
     /**
+     * Gesture listener for custom callbacks when making gestures on the chart.
+     */
+    private OnChartGestureListener mGestureListener;
+
+    /**
      * text that is displayed when the chart is empty that describes why the
      * chart is empty
      */
@@ -347,9 +354,9 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
                     "Cannot set data for chart. Provided data object is null.");
             return;
         }
-        
-//        Log.i(LOG_TAG, "xvalcount: " + data.getXValCount());
-//        Log.i(LOG_TAG, "entrycount: " + data.getYValCount());
+
+        // Log.i(LOG_TAG, "xvalcount: " + data.getXValCount());
+        // Log.i(LOG_TAG, "entrycount: " + data.getYValCount());
 
         // LET THE CHART KNOW THERE IS DATA
         mDataNotSet = false;
@@ -633,9 +640,9 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
         float[] valuePoints = new float[entries.size() * 2];
 
         for (int j = 0; j < valuePoints.length; j += 2) {
-            
+
             Entry e = entries.get(j / 2);
-            
+
             valuePoints[j] = e.getXIndex();
             valuePoints[j + 1] = e.getVal() * mPhaseY;
         }
@@ -1353,6 +1360,25 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
      */
     public void setOnChartValueSelectedListener(OnChartValueSelectedListener l) {
         this.mSelectionListener = l;
+    }
+
+    /**
+     * Sets a gesture-listener for the chart for custom callbacks when executing
+     * gestures on the chart surface.
+     * 
+     * @param l
+     */
+    public void setOnChartGestureListener(OnChartGestureListener l) {
+        this.mGestureListener = l;
+    }
+
+    /**
+     * Returns the custom gesture listener.
+     * 
+     * @return
+     */
+    public OnChartGestureListener getOnChartGestureListener() {
+        return mGestureListener;
     }
 
     /**
@@ -2074,10 +2100,10 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
     }
 
     /**
-     * Saves the chart with the given name to the given path on the sdcard
-     * leaving the path empty "" will put the saved file directly on the SD card
-     * chart is saved as a PNG image, example: saveToPath("myfilename",
-     * "foldername1/foldername2");
+     * Saves the current chart state with the given name to the given path on
+     * the sdcard leaving the path empty "" will put the saved file directly on
+     * the SD card chart is saved as a PNG image, example:
+     * saveToPath("myfilename", "foldername1/foldername2");
      * 
      * @param title
      * @param pathOnSD e.g. "folder1/folder2/folder3"
@@ -2153,6 +2179,7 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
         ContentValues values = new ContentValues(8);
 
+        // store the details
         values.put(Images.Media.TITLE, fileName);
         values.put(Images.Media.DISPLAY_NAME, fileName);
         values.put(Images.Media.DATE_ADDED, currentTime);
@@ -2191,8 +2218,15 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
         super.onSizeChanged(w, h, oldw, oldh);
     }
 
+    /**
+     * Default formatter used for formatting values. Uses a DecimalFormat with
+     * pre-calculated number of digits (depending on max and min value).
+     * 
+     * @author Philipp Jahoda
+     */
     private class DefaultValueFormatter implements ValueFormatter {
 
+        /** decimalformat for formatting */
         private DecimalFormat mFormat;
 
         public DefaultValueFormatter(DecimalFormat f) {
@@ -2201,6 +2235,7 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
         @Override
         public String getFormattedValue(float value) {
+            // avoid memory allocations here (for performance)
             return mFormat.format(value);
         }
     }
