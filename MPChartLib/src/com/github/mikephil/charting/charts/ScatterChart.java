@@ -35,6 +35,21 @@ public class ScatterChart extends BarLineChartBase<ScatterData> {
     public ScatterChart(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
     }
+    
+    @Override
+    protected void prepareContentRect() {
+        if(isEmpty()) {
+            super.prepareContentRect();
+        } else {
+            
+            float offset = mOriginalData.getGreatestShapeSize() / 2f;
+            
+            mContentRect.set(mOffsetLeft - offset,
+                    mOffsetTop,
+                    getWidth() - mOffsetRight + offset,
+                    getHeight() - mOffsetBottom);
+        }
+    }
 
     @Override
     protected void calcMinMax(boolean fixedValues) {
@@ -173,6 +188,9 @@ public class ScatterChart extends BarLineChartBase<ScatterData> {
 
             ScatterDataSet set = mCurrentData.getDataSetByIndex(mIndicesToHightlight[i]
                     .getDataSetIndex());
+            
+            if (set == null)
+                continue;
 
             mHighlightPaint.setColor(set.getHighLightColor());
 

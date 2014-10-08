@@ -46,7 +46,7 @@ public class PieChart extends PieRadarChartBase<PieData> {
      * variable for the text that is drawn in the center of the pie-chart. If
      * this value is null, the default is "Total Value\n + getYValueSum()"
      */
-    private String mCenterText = null;
+    private String mCenterText = "";
 
     /**
      * indicates the size of the hole in the center of the piechart, default:
@@ -118,7 +118,7 @@ public class PieChart extends PieRadarChartBase<PieData> {
         mHolePaint.setColor(Color.WHITE);
 
         mCenterTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mCenterTextPaint.setColor(mColorDarkBlue);
+        mCenterTextPaint.setColor(Color.BLACK);
         mCenterTextPaint.setTextSize(Utils.convertDpToPixel(12f));
         mCenterTextPaint.setTextAlign(Align.CENTER);
 
@@ -154,18 +154,6 @@ public class PieChart extends PieRadarChartBase<PieData> {
         canvas.drawBitmap(mDrawBitmap, 0, 0, mDrawPaint);
     }
 
-    /**
-     * does all necessary preparations, needed when data is changed or flags
-     * that effect the data are changed
-     */
-    @Override
-    public void prepare() {
-        super.prepare();
-
-        if (mCenterText == null)
-            mCenterText = "Total Value\n" + (int) getYValueSum();
-    }
-
     @Override
     protected void prepareContentRect() {
         super.prepareContentRect();
@@ -198,7 +186,7 @@ public class PieChart extends PieRadarChartBase<PieData> {
         // setup offsets for legend
         if (mDrawLegend) {
 
-            float legendRight = 0f, legendBottom = 0f;
+            float legendRight = 0f, legendBottom = 0f, legendTop = 0f;
 
             if (mLegend == null)
                 return;
@@ -212,6 +200,7 @@ public class PieChart extends PieRadarChartBase<PieData> {
                         + mLegend.getFormSize() + mLegend.getFormToTextSpace() + spacing;
 
                 mLegendLabelPaint.setTextAlign(Align.LEFT);
+                legendTop = mLegend.getFullHeight(mLegendLabelPaint);
 
             } else if (mLegend.getPosition() == LegendPosition.BELOW_CHART_LEFT
                     || mLegend.getPosition() == LegendPosition.BELOW_CHART_RIGHT
@@ -227,8 +216,9 @@ public class PieChart extends PieRadarChartBase<PieData> {
 
             mLegend.setOffsetTop(min);
             mLegend.setOffsetLeft(min);
-
-            mOffsetTop = Math.max(mLegend.getFullHeight(mLegendLabelPaint), min);
+           
+            mOffsetTop = Math.max(min, legendTop);
+            mOffsetBottom = Math.max(min, legendBottom);
 
             applyCalculatedOffsets();
         }
@@ -297,6 +287,12 @@ public class PieChart extends PieRadarChartBase<PieData> {
                         .getDataSetByIndex(mIndicesToHightlight[i]
                                 .getDataSetIndex());
 
+                if (set == null)
+                    continue;
+
+                if (set.getEntryForXIndex(xIndex) == null)
+                    continue;
+
                 float shift = set.getSelectionShift();
                 float xShift = shift * (float) Math.cos(shiftangle);
                 float yShift = shift * (float) Math.sin(shiftangle);
@@ -345,12 +341,13 @@ public class PieChart extends PieRadarChartBase<PieData> {
                         mDrawCanvas.drawArc(mCircleBox, angle + sliceSpace / 2f, newangle * mPhaseY
                                 - sliceSpace / 2f, true, mRenderPaint);
                     }
-                    
-//                    if(sliceSpace > 0f) {
-//                        
-//                        PointF outer = getPosition(c, radius, angle);
-//                        PointF inner = getPosition(c, radius * mHoleRadiusPercent / 100f, angle);
-//                    }
+
+                    // if(sliceSpace > 0f) {
+                    //
+                    // PointF outer = getPosition(c, radius, angle);
+                    // PointF inner = getPosition(c, radius * mHoleRadiusPercent
+                    // / 100f, angle);
+                    // }
                 }
 
                 angle += newangle * mPhaseX;
@@ -377,14 +374,17 @@ public class PieChart extends PieRadarChartBase<PieData> {
             mDrawCanvas.drawCircle(c.x, c.y,
                     radius / 100 * mHoleRadiusPercent, mHolePaint);
 
-            // make transparent
-            mHolePaint.setColor(color & 0x60FFFFFF);
+            if (mTransparentCircleRadius > mHoleRadiusPercent) {
 
-            // draw the transparent-circle
-            mDrawCanvas.drawCircle(c.x, c.y,
-                    radius / 100 * mTransparentCircleRadius, mHolePaint);
+                // make transparent
+                mHolePaint.setColor(color & 0x60FFFFFF);
 
-            mHolePaint.setColor(color);
+                // draw the transparent-circle
+                mDrawCanvas.drawCircle(c.x, c.y,
+                        radius / 100 * mTransparentCircleRadius, mHolePaint);
+
+                mHolePaint.setColor(color);
+            }
         }
     }
 
@@ -394,7 +394,7 @@ public class PieChart extends PieRadarChartBase<PieData> {
      */
     private void drawCenterText() {
 
-        if (mDrawCenterText) {
+        if (mDrawCenterText && mCenterText != null) {
 
             PointF c = getCenterCircleBox();
 
@@ -470,7 +470,8 @@ public class PieChart extends PieRadarChartBase<PieData> {
                 float value = entries.get(j).getVal();
 
                 if (mUsePercentValues)
-                    val = mValueFormatter.getFormattedValue(Math.abs(getPercentOfTotal(value))) + " %";
+                    val = mValueFormatter.getFormattedValue(Math.abs(getPercentOfTotal(value)))
+                            + " %";
                 else
                     val = mValueFormatter.getFormattedValue(value);
 
@@ -592,6 +593,16 @@ public class PieChart extends PieRadarChartBase<PieData> {
      */
     public float[] getAbsoluteAngles() {
         return mAbsoluteAngles;
+    }
+
+    /**
+     * Sets the color for the hole that is drawn in the center of the piechart
+     * (if enabled).
+     * 
+     * @param color
+     */
+    public void setHoleColor(int color) {
+        mHolePaint.setColor(color);
     }
 
     /**
