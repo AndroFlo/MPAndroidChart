@@ -1,15 +1,16 @@
 
 package com.github.mikephil.charting.listener;
 
+import android.graphics.PointF;
 import android.view.GestureDetector;
 import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
 
-import com.github.mikephil.charting.charts.PieChart;
 import com.github.mikephil.charting.charts.PieRadarChartBase;
 import com.github.mikephil.charting.charts.RadarChart;
+import com.github.mikephil.charting.interfaces.OnChartGestureListener;
 import com.github.mikephil.charting.utils.Highlight;
 import com.github.mikephil.charting.utils.SelInfo;
 import com.github.mikephil.charting.utils.Utils;
@@ -23,7 +24,14 @@ import java.util.ArrayList;
  */
 public class PieRadarChartTouchListener extends SimpleOnGestureListener implements OnTouchListener {
 
+    private static final int NONE = 0;
+    private static final int ROTATE = 1;
+
+    private PointF mTouchStartPoint = new PointF();
+
     private PieRadarChartBase mChart;
+
+    private int mTouchMode = NONE;
 
     private GestureDetector mGestureDetector;
 
@@ -49,12 +57,24 @@ public class PieRadarChartTouchListener extends SimpleOnGestureListener implemen
 
                 case MotionEvent.ACTION_DOWN:
                     mChart.setStartAngle(x, y);
+                    mTouchStartPoint.x = x;
+                    mTouchStartPoint.y = y;
                     break;
                 case MotionEvent.ACTION_MOVE:
-                    mChart.updateRotation(x, y);
-                    mChart.invalidate();
+
+                    if (mTouchMode == NONE && distance(x, mTouchStartPoint.x, y, mTouchStartPoint.y) 
+                            > Utils.convertDpToPixel(8f)) {
+                        mTouchMode = ROTATE;
+                        mChart.disableScroll();
+                    } else if (mTouchMode == ROTATE) {
+                        mChart.updateRotation(x, y);
+                        mChart.invalidate();
+                    }
+
                     break;
                 case MotionEvent.ACTION_UP:
+                    mChart.enableScroll();
+                    mTouchMode = NONE;
                     break;
             }
         }
@@ -64,8 +84,12 @@ public class PieRadarChartTouchListener extends SimpleOnGestureListener implemen
 
     @Override
     public void onLongPress(MotionEvent me) {
-        // todo
-    };
+        OnChartGestureListener l = mChart.getOnChartGestureListener();
+
+        if (l != null) {
+            l.onChartLongPressed(me);
+        }
+    }
 
     @Override
     public boolean onSingleTapConfirmed(MotionEvent e) {
@@ -78,6 +102,12 @@ public class PieRadarChartTouchListener extends SimpleOnGestureListener implemen
     @Override
     public boolean onSingleTapUp(MotionEvent e) {
 
+        OnChartGestureListener l = mChart.getOnChartGestureListener();
+
+        if (l != null) {
+            l.onChartSingleTapped(e);
+        }
+
         float distance = mChart.distanceToCenter(e.getX(), e.getY());
 
         // check if a slice was touched
@@ -89,31 +119,69 @@ public class PieRadarChartTouchListener extends SimpleOnGestureListener implemen
 
         } else {
 
-            int index = mChart.getIndexForAngle(mChart.getAngleForPoint(e.getX(), e.getY()));
-            ArrayList<SelInfo> valsAtIndex = mChart.getYValsAtIndex(index);
+            float angle = mChart.getAngleForPoint(e.getX(), e.getY());
+            int index = mChart.getIndexForAngle(angle);
 
-            int dataSetIndex = 0;
+            // check if the index could be found
+            if (index < 0) {
 
-            // get the dataset that is closest to the selection (PieChart only has one DataSet)
-            if (mChart instanceof RadarChart) {
-
-                dataSetIndex = Utils.getClosestDataSetIndex(valsAtIndex, distance
-                        / ((RadarChart) mChart).getFactor());
-            }
-
-            Highlight h = new Highlight(index, dataSetIndex);
-
-            if (h.equalTo(mLastHighlight)) {
-
-                mChart.highlightTouch(null);
+                mChart.highlightValues(null);
                 mLastHighlight = null;
+
             } else {
 
-                mChart.highlightTouch(h);
-                mLastHighlight = h;
+                ArrayList<SelInfo> valsAtIndex = mChart.getYValsAtIndex(index);
+
+                int dataSetIndex = 0;
+
+                // get the dataset that is closest to the selection (PieChart
+                // only
+                // has one DataSet)
+                if (mChart instanceof RadarChart) {
+
+                    dataSetIndex = Utils.getClosestDataSetIndex(valsAtIndex, distance
+                            / ((RadarChart) mChart).getFactor());
+                }
+
+                Highlight h = new Highlight(index, dataSetIndex);
+
+                if (h.equalTo(mLastHighlight)) {
+
+                    mChart.highlightTouch(null);
+                    mLastHighlight = null;
+                } else {
+
+                    mChart.highlightTouch(h);
+                    mLastHighlight = h;
+                }
             }
         }
 
         return true;
+    }
+
+    @Override
+    public boolean onDoubleTap(MotionEvent e) {
+        OnChartGestureListener l = mChart.getOnChartGestureListener();
+
+        if (l != null) {
+            l.onChartDoubleTapped(e);
+        }
+        return super.onDoubleTap(e);
+    }
+
+    /**
+     * returns the distance between two points
+     * 
+     * @param eventX
+     * @param startX
+     * @param eventY
+     * @param startY
+     * @return
+     */
+    private static float distance(float eventX, float startX, float eventY, float startY) {
+        float dx = eventX - startX;
+        float dy = eventY - startY;
+        return (float) Math.sqrt(dx * dx + dy * dy);
     }
 }

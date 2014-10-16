@@ -93,11 +93,14 @@ public class LineChart extends BarLineChartBase<LineData> {
     protected void calcMinMax(boolean fixedValues) {
         super.calcMinMax(fixedValues);
 
-        // if there is only one value in the chart
-        if (mOriginalData.getYValCount() == 1
-                || mOriginalData.getYValCount() <= mOriginalData.getDataSetCount()) {
+        // // if there is only one value in the chart
+        // if (mOriginalData.getYValCount() == 1
+        // || mOriginalData.getYValCount() <= mOriginalData.getDataSetCount()) {
+        // mDeltaX = 1;
+        // }
+
+        if (mDeltaX == 0 && mOriginalData.getYValCount() > 0)
             mDeltaX = 1;
-        }
     }
 
     @Override
@@ -107,6 +110,9 @@ public class LineChart extends BarLineChartBase<LineData> {
 
             LineDataSet set = mOriginalData.getDataSetByIndex(mIndicesToHightlight[i]
                     .getDataSetIndex());
+
+            if (set == null)
+                continue;
 
             mHighlightPaint.setColor(set.getHighLightColor());
 
@@ -164,6 +170,9 @@ public class LineChart extends BarLineChartBase<LineData> {
             LineDataSet dataSet = dataSets.get(i);
             ArrayList<Entry> entries = dataSet.getYVals();
 
+            if (entries.size() < 1)
+                continue;
+
             mRenderPaint.setStrokeWidth(dataSet.getLineWidth());
             mRenderPaint.setPathEffect(dataSet.getDashPathEffect());
 
@@ -172,7 +181,7 @@ public class LineChart extends BarLineChartBase<LineData> {
 
                 // get the color that is specified for this position from the
                 // DataSet
-                mRenderPaint.setColor(dataSet.getColor(i));
+                mRenderPaint.setColor(dataSet.getColor());
 
                 float intensity = dataSet.getCubicIntensity();
 
@@ -241,26 +250,38 @@ public class LineChart extends BarLineChartBase<LineData> {
 
                 mRenderPaint.setStyle(Paint.Style.STROKE);
 
-                float[] valuePoints = generateTransformedValuesLineScatter(entries);
+                // more than 1 color
+                if (dataSet.getColors() == null || dataSet.getColors().size() > 1) {
 
-                for (int j = 0; j < (valuePoints.length - 2) * mPhaseX; j += 2) {
+                    float[] valuePoints = generateTransformedValuesLineScatter(entries);
 
-                    // get the color that is specified for this position from
-                    // the DataSet, this will reuse colors, if the index is out
-                    // of bounds
-                    mRenderPaint.setColor(dataSet.getColor(j / 2));
+                    for (int j = 0; j < (valuePoints.length - 2) * mPhaseX; j += 2) {
 
-                    if (isOffContentRight(valuePoints[j]))
-                        break;
+                        if (isOffContentRight(valuePoints[j]))
+                            break;
 
-                    // make sure the lines don't do shitty things outside bounds
-                    if (j != 0 && isOffContentLeft(valuePoints[j - 1])
-                            && isOffContentTop(valuePoints[j + 1])
-                            && isOffContentBottom(valuePoints[j + 1]))
-                        continue;
+                        // make sure the lines don't do shitty things outside
+                        // bounds
+                        if (j != 0 && isOffContentLeft(valuePoints[j - 1])
+                                && isOffContentTop(valuePoints[j + 1])
+                                && isOffContentBottom(valuePoints[j + 1]))
+                            continue;
 
-                    mDrawCanvas.drawLine(valuePoints[j], valuePoints[j + 1], valuePoints[j + 2],
-                            valuePoints[j + 3], mRenderPaint);
+                        // get the color that is set for this line-segment
+                        mRenderPaint.setColor(dataSet.getColor(j / 2));
+
+                        mDrawCanvas.drawLine(valuePoints[j], valuePoints[j + 1],
+                                valuePoints[j + 2], valuePoints[j + 3], mRenderPaint);
+                    }
+
+                } else { // only one color per dataset
+
+                    mRenderPaint.setColor(dataSet.getColor());
+
+                    Path line = generateLinePath(entries);
+                    transformPath(line);
+
+                    mDrawCanvas.drawPath(line, mRenderPaint);
                 }
 
                 mRenderPaint.setPathEffect(null);
@@ -292,6 +313,8 @@ public class LineChart extends BarLineChartBase<LineData> {
                     // mRenderPaint.setShader(null);
                 }
             }
+
+            mRenderPaint.setPathEffect(null);
         }
     }
 
@@ -301,7 +324,7 @@ public class LineChart extends BarLineChartBase<LineData> {
      * @param entries
      * @return
      */
-    private Path generateFilledPath(ArrayList<? extends Entry> entries, float fillMin) {
+    private Path generateFilledPath(ArrayList<Entry> entries, float fillMin) {
 
         Path filled = new Path();
         filled.moveTo(entries.get(0).getXIndex(), entries.get(0).getVal() * mPhaseY);
@@ -319,6 +342,27 @@ public class LineChart extends BarLineChartBase<LineData> {
         filled.close();
 
         return filled;
+    }
+
+    /**
+     * Generates the path that is used for drawing a single line.
+     * 
+     * @param entries
+     * @return
+     */
+    private Path generateLinePath(ArrayList<Entry> entries) {
+
+        Path line = new Path();
+        line.moveTo(entries.get(0).getXIndex(), entries.get(0).getVal() * mPhaseY);
+
+        // create a new path
+        for (int x = 1; x < entries.size() * mPhaseX; x++) {
+
+            Entry e = entries.get(x);
+            line.lineTo(e.getXIndex(), e.getVal() * mPhaseY);
+        }
+
+        return line;
     }
 
     @Override

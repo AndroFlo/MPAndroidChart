@@ -15,12 +15,14 @@ import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.os.Environment;
 import android.provider.MediaStore.Images;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewParent;
 
 import com.github.mikephil.charting.data.BarData;
 import com.github.mikephil.charting.data.BarDataSet;
@@ -28,6 +30,7 @@ import com.github.mikephil.charting.data.ChartData;
 import com.github.mikephil.charting.data.DataSet;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.PieDataSet;
+import com.github.mikephil.charting.interfaces.OnChartGestureListener;
 import com.github.mikephil.charting.interfaces.OnChartValueSelectedListener;
 import com.github.mikephil.charting.utils.Highlight;
 import com.github.mikephil.charting.utils.Legend;
@@ -56,20 +59,11 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
     public static final String LOG_TAG = "MPChart";
 
-    protected int mColorDarkBlue = Color.rgb(41, 128, 186);
-    protected int mColorDarkRed = Color.rgb(232, 76, 59);
-
     /**
      * string that is drawn next to the values in the chart, indicating their
      * unit
      */
     protected String mUnit = "";
-
-    /**
-     * flag that holds the background color of the view and the color the canvas
-     * is cleared with
-     */
-    protected int mBackgroundColor = Color.WHITE;
 
     /** custom formatter that is used instead of the auto-formatter if set */
     protected ValueFormatter mValueFormatter = null;
@@ -104,9 +98,6 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
      */
     protected T mOriginalData = null;
 
-    /** final bitmap that contains all information and is drawn to the screen */
-    protected Bitmap mDrawBitmap;
-
     /** the canvas that is used for drawing on the bitmap */
     protected Canvas mDrawCanvas;
 
@@ -121,11 +112,6 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
     /** paint for the y-label values */
     protected Paint mYLabelPaint;
-
-    /**
-     * paint object used for darwing the bitmap to the screen
-     */
-    protected Paint mDrawPaint;
 
     /** paint used for highlighting values */
     protected Paint mHighlightPaint;
@@ -209,6 +195,11 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
     private String mNoDataText = "No chart data available.";
 
     /**
+     * Gesture listener for custom callbacks when making gestures on the chart.
+     */
+    private OnChartGestureListener mGestureListener;
+
+    /**
      * text that is displayed when the chart is empty that describes why the
      * chart is empty
      */
@@ -237,6 +228,8 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
      */
     protected void init() {
 
+        // setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+
         // initialize the utils
         Utils.init(getContext().getResources());
 
@@ -248,8 +241,6 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
         mRenderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mRenderPaint.setStyle(Style.FILL);
-
-        mDrawPaint = new Paint();
 
         mDescPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mDescPaint.setColor(Color.BLACK);
@@ -289,6 +280,8 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
         mLimitLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mLimitLinePaint.setStyle(Paint.Style.STROKE);
+
+        mDrawPaint = new Paint(Paint.DITHER_FLAG);
     }
 
     // public void initWithDummyData() {
@@ -325,8 +318,6 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
     // invalidate();
     // }
 
-    protected boolean mOffsetsCalculated = false;
-
     /**
      * Sets a new data object for the chart. The data object contains all values
      * and information needed for displaying.
@@ -347,9 +338,9 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
                     "Cannot set data for chart. Provided data object is null.");
             return;
         }
-        
-//        Log.i(LOG_TAG, "xvalcount: " + data.getXValCount());
-//        Log.i(LOG_TAG, "entrycount: " + data.getYValCount());
+
+        // Log.i(LOG_TAG, "xvalcount: " + data.getXValCount());
+        // Log.i(LOG_TAG, "entrycount: " + data.getYValCount());
 
         // LET THE CHART KNOW THERE IS DATA
         mDataNotSet = false;
@@ -460,9 +451,22 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
         }
     }
 
+    /** flag that indicates if offsets calculation has already been done or not */
+    private boolean mOffsetsCalculated = false;
+
+    /**
+     * Bitmap object used for drawing. This is necessary because hardware
+     * acceleration uses OpenGL which only allows a specific texture size to be
+     * drawn on the canvas directly.
+     **/
+    protected Bitmap mDrawBitmap;
+
+    /** paint object used for drawing the bitmap */
+    protected Paint mDrawPaint;
+
     @Override
     protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
+        // super.onDraw(canvas);
 
         if (mDataNotSet) { // check if there is data
 
@@ -485,52 +489,17 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
         if (mDrawBitmap == null || mDrawCanvas == null) {
 
-            // use RGB_565 for best performance
-            mDrawBitmap = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.RGB_565);
+            mDrawBitmap = Bitmap.createBitmap(getWidth(), getHeight(),
+                    Bitmap.Config.ARGB_4444);
             mDrawCanvas = new Canvas(mDrawBitmap);
         }
 
-        mDrawCanvas.drawColor(mBackgroundColor); // clear all
-    }
+        // clear everything
+        mDrawBitmap.eraseColor(Color.TRANSPARENT);
 
-    /**
-     * Sets up all the matrices that will be used for scaling the coordinates to
-     * the display. Offset and Value-px.
-     */
-    protected void prepareMatrix() {
-
-        prepareMatrixValuePx();
-
-        prepareMatrixOffset();
-
-        Log.i(LOG_TAG, "Matrices prepared.");
-    }
-
-    /**
-     * Prepares the matrix that transforms values to pixels.
-     */
-    protected void prepareMatrixValuePx() {
-
-        float scaleX = (float) ((getWidth() - mOffsetRight - mOffsetLeft) / mDeltaX);
-        float scaleY = (float) ((getHeight() - mOffsetTop - mOffsetBottom) / mDeltaY);
-
-        // setup all matrices
-        mMatrixValueToPx.reset();
-        mMatrixValueToPx.postTranslate(0, -mYChartMin);
-        mMatrixValueToPx.postScale(scaleX, -scaleY);
-    }
-
-    /**
-     * Prepares the matrix that contains all offsets.
-     */
-    protected void prepareMatrixOffset() {
-
-        mMatrixOffset.reset();
-
-        mMatrixOffset.postTranslate(mOffsetLeft, getHeight() - mOffsetBottom);
-
-        // mMatrixOffset.setTranslate(mOffsetLeft, 0);
-        // mMatrixOffset.postScale(1.0f, -1.0f);
+        // mDrawCanvas.drawColor(Color.WHITE);
+        // canvas.drawColor(Color.TRANSPARENT,
+        // android.graphics.PorterDuff.Mode.XOR); // clear all
     }
 
     /**
@@ -633,9 +602,9 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
         float[] valuePoints = new float[entries.size() * 2];
 
         for (int j = 0; j < valuePoints.length; j += 2) {
-            
+
             Entry e = entries.get(j / 2);
-            
+
             valuePoints[j] = e.getXIndex();
             valuePoints[j + 1] = e.getVal() * mPhaseY;
         }
@@ -814,6 +783,11 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
         float posX, posY;
 
+        // contains the stacked legend size in pixels
+        float stack = 0f;
+
+        boolean wasStacked = false;
+
         switch (mLegend.getPosition()) {
             case BELOW_CHART_LEFT:
 
@@ -868,9 +842,6 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
                         - formTextSpaceAndForm;
                 posY = mLegend.getOffsetTop();
 
-                float stack = 0f;
-                boolean wasStacked = false;
-
                 for (int i = 0; i < labels.length; i++) {
 
                     mLegend.drawForm(mDrawCanvas, posX + stack, posY, mLegendFormPaint, i);
@@ -906,6 +877,47 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
                     }
                 }
                 break;
+            case RIGHT_OF_CHART_CENTER:
+                posX = getWidth() - mLegend.getMaximumEntryLength(mLegendLabelPaint)
+                        - formTextSpaceAndForm;
+                posY = getHeight() / 2f - mLegend.getFullHeight(mLegendLabelPaint) / 2f;
+
+                for (int i = 0; i < labels.length; i++) {
+
+                    mLegend.drawForm(mDrawCanvas, posX + stack, posY, mLegendFormPaint, i);
+
+                    if (labels[i] != null) {
+
+                        if (!wasStacked) {
+
+                            float x = posX;
+
+                            if (mLegend.getColors()[i] != -2)
+                                x += formTextSpaceAndForm;
+
+                            posY += textDrop;
+
+                            mLegend.drawLabel(mDrawCanvas, x, posY,
+                                    mLegendLabelPaint, i);
+                        } else {
+
+                            posY += textSize * 1.2f + formSize;
+
+                            mLegend.drawLabel(mDrawCanvas, posX, posY,
+                                    mLegendLabelPaint, i);
+
+                        }
+
+                        // make a step down
+                        posY += mLegend.getYEntrySpace();
+                        stack = 0f;
+                    } else {
+                        stack += formSize + stackSpace;
+                        wasStacked = true;
+                    }
+                }
+
+                break;
             case BELOW_CHART_CENTER:
 
                 float fullSize = mLegend.getFullWidth(mLegendLabelPaint);
@@ -934,6 +946,49 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
                 Log.i(LOG_TAG, "content bottom: " + mContentRect.bottom + ", height: "
                         + getHeight() + ", posY: " + posY + ", formSize: " + formSize);
+
+                break;
+            case PIECHART_CENTER:
+
+                posX = getWidth() / 2f
+                        - (mLegend.getMaximumEntryLength(mLegendLabelPaint) + mLegend.getXEntrySpace())
+                        / 2f;
+                posY = getHeight() / 2f - mLegend.getFullHeight(mLegendLabelPaint) / 2f;
+
+                for (int i = 0; i < labels.length; i++) {
+
+                    mLegend.drawForm(mDrawCanvas, posX + stack, posY, mLegendFormPaint, i);
+
+                    if (labels[i] != null) {
+
+                        if (!wasStacked) {
+
+                            float x = posX;
+
+                            if (mLegend.getColors()[i] != -2)
+                                x += formTextSpaceAndForm;
+
+                            posY += textDrop;
+
+                            mLegend.drawLabel(mDrawCanvas, x, posY,
+                                    mLegendLabelPaint, i);
+                        } else {
+
+                            posY += textSize * 1.2f + formSize;
+
+                            mLegend.drawLabel(mDrawCanvas, posX, posY,
+                                    mLegendLabelPaint, i);
+
+                        }
+
+                        // make a step down
+                        posY += mLegend.getYEntrySpace();
+                        stack = 0f;
+                    } else {
+                        stack += formSize + stackSpace;
+                        wasStacked = true;
+                    }
+                }
 
                 break;
         }
@@ -979,31 +1034,6 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
      * chart
      */
     protected Highlight[] mIndicesToHightlight = new Highlight[0];
-
-    /**
-     * checks if the given index in the given DataSet is set for highlighting or
-     * not
-     * 
-     * @param xIndex
-     * @param dataSetIndex
-     * @return
-     */
-    public boolean needsHighlight(int xIndex, int dataSetIndex) {
-
-        // no highlight
-        if (!valuesToHighlight())
-            return false;
-
-        for (int i = 0; i < mIndicesToHightlight.length; i++)
-
-            // check if the xvalue for the given dataset needs highlight
-            if (mIndicesToHightlight[i].getXIndex() == xIndex
-                    && mIndicesToHightlight[i].getDataSetIndex() == dataSetIndex
-                    && xIndex <= mDeltaX)
-                return true;
-
-        return false;
-    }
 
     /**
      * Returns true if there are values to highlight, false if there are no
@@ -1356,6 +1386,25 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
     }
 
     /**
+     * Sets a gesture-listener for the chart for custom callbacks when executing
+     * gestures on the chart surface.
+     * 
+     * @param l
+     */
+    public void setOnChartGestureListener(OnChartGestureListener l) {
+        this.mGestureListener = l;
+    }
+
+    /**
+     * Returns the custom gesture listener.
+     * 
+     * @return
+     */
+    public OnChartGestureListener getOnChartGestureListener() {
+        return mGestureListener;
+    }
+
+    /**
      * If set to true, value highlighting is enabled which means that values can
      * be highlighted programmatically or by touch gesture.
      * 
@@ -1663,6 +1712,22 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
      */
     public RectF getContentRect() {
         return mContentRect;
+    }
+    
+    /**
+     * disables intercept touchevents
+     */
+    public void disableScroll() {
+        ViewParent parent = getParent();
+        parent.requestDisallowInterceptTouchEvent(true);
+    }
+
+    /**
+     * enables intercept touchevents
+     */
+    public void enableScroll() {
+        ViewParent parent = getParent();
+        parent.requestDisallowInterceptTouchEvent(false);
     }
 
     /** paint for the grid lines (only line and barchart) */
@@ -2063,27 +2128,43 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
     }
 
     /**
-     * sets the background color for the chart --> this also sets the color the
-     * canvas is cleared with
+     * Returns the bitmap that represents the chart.
+     * 
+     * @return
      */
-    @Override
-    public void setBackgroundColor(int color) {
-        super.setBackgroundColor(color);
-
-        mBackgroundColor = color;
+    public Bitmap getChartBitmap() {
+        // Define a bitmap with the same size as the view
+        Bitmap returnedBitmap = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.RGB_565);
+        // Bind a canvas to it
+        Canvas canvas = new Canvas(returnedBitmap);
+        // Get the view's background
+        Drawable bgDrawable = getBackground();
+        if (bgDrawable != null)
+            // has background drawable, then draw it on the canvas
+            bgDrawable.draw(canvas);
+        else
+            // does not have background drawable, then draw white background on
+            // the canvas
+            canvas.drawColor(Color.WHITE);
+        // draw the view on the canvas
+        draw(canvas);
+        // return the bitmap
+        return returnedBitmap;
     }
 
     /**
-     * Saves the chart with the given name to the given path on the sdcard
-     * leaving the path empty "" will put the saved file directly on the SD card
-     * chart is saved as a PNG image, example: saveToPath("myfilename",
-     * "foldername1/foldername2");
+     * Saves the current chart state with the given name to the given path on
+     * the sdcard leaving the path empty "" will put the saved file directly on
+     * the SD card chart is saved as a PNG image, example:
+     * saveToPath("myfilename", "foldername1/foldername2");
      * 
      * @param title
      * @param pathOnSD e.g. "folder1/folder2/folder3"
      * @return returns true on success, false on error
      */
     public boolean saveToPath(String title, String pathOnSD) {
+
+        Bitmap b = getChartBitmap();
 
         OutputStream stream = null;
         try {
@@ -2095,7 +2176,7 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
              * Write bitmap to file using JPEG or PNG and 40% quality hint for
              * JPEG.
              */
-            mDrawBitmap.compress(CompressFormat.PNG, 40, stream);
+            b.compress(CompressFormat.PNG, 40, stream);
 
             stream.close();
         } catch (Exception e) {
@@ -2136,7 +2217,9 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
         try {
             out = new FileOutputStream(filePath);
 
-            mDrawBitmap.compress(Bitmap.CompressFormat.JPEG, quality, out); // control
+            Bitmap b = getChartBitmap();
+
+            b.compress(Bitmap.CompressFormat.JPEG, quality, out); // control
             // the jpeg
             // quality
 
@@ -2153,6 +2236,7 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
         ContentValues values = new ContentValues(8);
 
+        // store the details
         values.put(Images.Media.TITLE, fileName);
         values.put(Images.Media.DISPLAY_NAME, fileName);
         values.put(Images.Media.DATE_ADDED, currentTime);
@@ -2188,11 +2272,27 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+
+        // create a new bitmap with the new dimensions
+        mDrawBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_4444);
+        mDrawCanvas = new Canvas(mDrawBitmap);
+
+        // prepare content rect and matrices
+        prepareContentRect();
+        prepare();
+
         super.onSizeChanged(w, h, oldw, oldh);
     }
 
+    /**
+     * Default formatter used for formatting values. Uses a DecimalFormat with
+     * pre-calculated number of digits (depending on max and min value).
+     * 
+     * @author Philipp Jahoda
+     */
     private class DefaultValueFormatter implements ValueFormatter {
 
+        /** decimalformat for formatting */
         private DecimalFormat mFormat;
 
         public DefaultValueFormatter(DecimalFormat f) {
@@ -2201,6 +2301,7 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
 
         @Override
         public String getFormattedValue(float value) {
+            // avoid memory allocations here (for performance)
             return mFormat.format(value);
         }
     }
