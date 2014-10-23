@@ -365,6 +365,14 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
         mDataNotSet = true;
         invalidate();
     }
+    
+    /**
+     * 
+     * @return true if data are not set
+     */
+    public boolean isDataNotSet(){
+    	return mDataNotSet ;
+    }
 
     /**
      * Returns true if the chart is empty (meaning it's data object is either
