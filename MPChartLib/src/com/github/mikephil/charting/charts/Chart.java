@@ -318,9 +318,6 @@ public abstract class Chart<T extends ChartData<? extends DataSet<? extends Entr
     // invalidate();
     // }
     
-    public boolean isDataNotSet(){
-    	return mDataNotSet ;
-    }
 
     /**
      * Sets a new data object for the chart. The data object contains all values
