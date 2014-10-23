@@ -58,6 +58,8 @@ public class BarChartActivity extends DemoBase implements OnSeekBarChangeListene
 
         // enable the drawing of values
         mChart.setDrawYValues(true);
+        
+        mChart.setDrawValueAboveBar(true);
 
         mChart.setDescription("");
 
@@ -75,7 +77,7 @@ public class BarChartActivity extends DemoBase implements OnSeekBarChangeListene
         // mChart.setDrawBarShadow(true);
 
         mChart.setUnit(" €");
-
+        
         // mChart.setDrawXLabels(false);
 
         mChart.setDrawGridBackground(false);

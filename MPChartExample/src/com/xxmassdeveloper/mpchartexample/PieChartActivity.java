@@ -43,7 +43,7 @@ public class PieChartActivity extends DemoBase implements OnSeekBarChangeListene
 
         mSeekBarX = (SeekBar) findViewById(R.id.seekBar1);
         mSeekBarY = (SeekBar) findViewById(R.id.seekBar2);
-        
+
         mSeekBarY.setProgress(10);
 
         mSeekBarX.setOnSeekBarChangeListener(this);
@@ -84,7 +84,7 @@ public class PieChartActivity extends DemoBase implements OnSeekBarChangeListene
         // add a selection listener
         mChart.setOnChartValueSelectedListener(this);
         // mChart.setTouchEnabled(false);
-        
+
         mChart.setCenterText("MPAndroidChart\nLibrary");
 
         setData(3, 100);
@@ -98,47 +98,6 @@ public class PieChartActivity extends DemoBase implements OnSeekBarChangeListene
         l.setYEntrySpace(5f);
 
     }
-
-//    private void removeLastEntry() {
-//
-//        PieData data = mChart.getDataOriginal();
-//
-//        if (data != null) {
-//
-//            PieDataSet set = data.getDataSet();
-//
-//            if (set != null) {
-//
-//                Entry e = set.getEntryForXIndex(set.getEntryCount() - 1);
-//
-//                data.removeEntry(e, 0);
-//                // or remove by index
-//                // mData.removeEntry(xIndex, dataSetIndex);
-//
-//                mChart.notifyDataSetChanged();
-//                mChart.invalidate();
-//            }
-//        }
-//    }
-//    
-//    private void addEntry() {
-//
-//        PieData data = mChart.getDataOriginal();
-//        
-//        if(data != null) {
-//
-//            PieDataSet set = data.getDataSet();
-//            // set.addEntry(...);
-//
-//            data.addEntry(new Entry((float) (Math.random() * 50) + 50f, set.getEntryCount()), 0);
-//
-//            // let the chart know it's data has changed
-//            mChart.notifyDataSetChanged();
-//
-//            // redraw the chart
-//            mChart.invalidate();   
-//        }
-//    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -156,7 +115,6 @@ public class PieChartActivity extends DemoBase implements OnSeekBarChangeListene
                 else
                     mChart.setDrawYValues(true);
                 mChart.invalidate();
-//                removeLastEntry();
                 break;
             }
             case R.id.actionTogglePercent: {
@@ -165,7 +123,6 @@ public class PieChartActivity extends DemoBase implements OnSeekBarChangeListene
                 else
                     mChart.setUsePercentValues(true);
                 mChart.invalidate();
-//                addEntry();
                 break;
             }
             case R.id.actionToggleHole: {
@@ -252,14 +209,23 @@ public class PieChartActivity extends DemoBase implements OnSeekBarChangeListene
 
         PieDataSet set1 = new PieDataSet(yVals1, "Election Results");
         set1.setSliceSpace(3f);
-        set1.setColors(ColorTemplate.VORDIPLOM_COLORS);
+
+        ArrayList<Integer> colors = new ArrayList<Integer>();
+
+        for (int c : ColorTemplate.VORDIPLOM_COLORS)
+            colors.add(c);
+
+        for (int c : ColorTemplate.JOYFUL_COLORS)
+            colors.add(c);
+
+        set1.setColors(colors);
 
         PieData data = new PieData(xVals, set1);
         mChart.setData(data);
 
         // undo all highlights
         mChart.highlightValues(null);
-        
+
         mChart.invalidate();
     }
 
@@ -289,4 +255,46 @@ public class PieChartActivity extends DemoBase implements OnSeekBarChangeListene
         // TODO Auto-generated method stub
 
     }
+    
+//  private void removeLastEntry() {
+//
+//      PieData data = mChart.getDataOriginal();
+//
+//      if (data != null) {
+//
+//          PieDataSet set = data.getDataSet();
+//
+//          if (set != null) {
+//
+//              Entry e = set.getEntryForXIndex(set.getEntryCount() - 1);
+//
+//              data.removeEntry(e, 0);
+//              // or remove by index
+//              // mData.removeEntry(xIndex, dataSetIndex);
+//
+//              mChart.notifyDataSetChanged();
+//              mChart.invalidate();
+//          }
+//      }
+//  }
+//
+//  private void addEntry() {
+//
+//      PieData data = mChart.getDataOriginal();
+//
+//      if (data != null) {
+//
+//          PieDataSet set = data.getDataSet();
+//          // set.addEntry(...);
+//
+//          data.addEntry(new Entry((float) (Math.random() * 25) + 20f,
+//                  set.getEntryCount()), 0);
+//
+//          // let the chart know it's data has changed
+//          mChart.notifyDataSetChanged();
+//
+//          // redraw the chart
+//          mChart.invalidate();
+//      }
+//  }
 }
