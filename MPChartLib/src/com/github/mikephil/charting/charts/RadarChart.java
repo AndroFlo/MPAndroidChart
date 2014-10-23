@@ -5,16 +5,13 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Paint.Align;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.util.AttributeSet;
-import android.util.Log;
 
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.RadarData;
 import com.github.mikephil.charting.data.RadarDataSet;
-import com.github.mikephil.charting.utils.Legend.LegendPosition;
 import com.github.mikephil.charting.utils.LimitLine;
 import com.github.mikephil.charting.utils.Utils;
 import com.github.mikephil.charting.utils.XLabels;
@@ -106,57 +103,6 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
         prepareXLabels();
     }
 
-    // @Override
-    // protected void calculateOffsets() {
-    //
-    // float legendRight = 0f, legendBottom = 0f;
-    //
-    // // setup offsets for legend
-    // if (mDrawLegend) {
-    //
-    // if (mLegend == null)
-    // return;
-    //
-    // if (mLegend.getPosition() == LegendPosition.RIGHT_OF_CHART
-    // || mLegend.getPosition() == LegendPosition.RIGHT_OF_CHART_CENTER) {
-    //
-    // // this is the space between the legend and the chart
-    // float spacing = Utils.convertDpToPixel(8f);
-    //
-    // legendRight = mLegend.getMaximumEntryLength(mLegendLabelPaint)
-    // + mLegend.getFormSize() + mLegend.getFormToTextSpace() + spacing
-    // + mXLabels.mLabelWidth;
-    //
-    // mLegendLabelPaint.setTextAlign(Align.LEFT);
-    //
-    // } else if (mLegend.getPosition() == LegendPosition.BELOW_CHART_LEFT
-    // || mLegend.getPosition() == LegendPosition.BELOW_CHART_RIGHT
-    // || mLegend.getPosition() == LegendPosition.BELOW_CHART_CENTER) {
-    //
-    // legendBottom = mLegendLabelPaint.getTextSize() * 5.5f;
-    // }
-    //
-    // mLegend.setOffsetBottom(legendBottom);
-    // mLegend.setOffsetRight(legendRight);
-    // }
-    //
-    // // all required offsets are calculated, now find largest and apply
-    // float min = Utils.convertDpToPixel(11f);
-    //
-    // mOffsetBottom = Math.max(mXLabels.mLabelWidth, min);
-    // mOffsetTop = Math.max(mXLabels.mLabelWidth, min);
-    // mOffsetRight = Math.max(legendRight, min);
-    // mOffsetLeft = Math.max(mXLabels.mLabelWidth, min);
-    //
-    // mOffsetBottom = Math.max(mOffsetBottom, legendBottom);
-    // mOffsetRight = Math.max(mOffsetRight, legendRight / 3f * 2f);
-    //
-    // mLegend.setOffsetTop(min);
-    // mLegend.setOffsetLeft(min);
-    //
-    // applyCalculatedOffsets();
-    //
-    // }
 
     @Override
     protected void onDraw(Canvas canvas) {
@@ -164,8 +110,6 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
 
         if (mDataNotSet)
             return;
-
-        long starttime = System.currentTimeMillis();
 
         drawXLabels();
 
@@ -190,8 +134,6 @@ public class RadarChart extends PieRadarChartBase<RadarData> {
         drawMarkers();
 
         canvas.drawBitmap(mDrawBitmap, 0, 0, mDrawPaint);
-
-        Log.i(LOG_TAG, "RadarChart DrawTime: " + (System.currentTimeMillis() - starttime) + " ms");
     }
 
     /**
